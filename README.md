@@ -5,7 +5,7 @@
   <br/>
   <a href="#"><img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white&style=flat-square" /></a>
   <a href="#"><img src="https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white&style=flat-square" /></a>
-  <a href="#"><img src="https://img.shields.io/badge/LangGraph-0.2+-7B3FE4&style=flat-square" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/LangGraph-0.2+-7B3FE4?style=flat-square" /></a>
   <a href="#"><img src="https://img.shields.io/badge/LLM-DeepSeek-536DFE?style=flat-square" /></a>
   <a href="#"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" /></a>
 </h1>
