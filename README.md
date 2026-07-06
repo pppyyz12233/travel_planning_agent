@@ -91,21 +91,102 @@ python main.py              # → http://localhost:8000/docs
 ## 📦 项目结构
 
 ```
-app/
-├── utils/         基础设施（config · db · llm · context）
-├── models/        5 张表 ─ User · Message · Plan · Document · Conversation
-├── crud/          数据访问层（每表一个）
-├── schemas/       Pydantic 请求/响应模型
-├── auth/          SHA-256 加盐 + JWT
-├── routers/       FastAPI 路由（auth · chat · admin · knowledge）
-├── agents/        ★ Supervisor + 5 Worker + Guard + 6 SKILL.md
-├── mcp/           MCP 航班 Server + 天气 Server + Registry
-└── rag/           MinerU → Chunk → BGE-M3 → BM25 → CrossEncoder → ChromaDB
-```
-
----
-
-## 🧪 技术栈
+travel_planning_agent/
+├── main.py                              # 启动入口
+├── .env.example                         # 环境变量模板
+├── .gitignore
+├── requirements.txt                     # Python 依赖
+├── README.md
+│
+├── app/
+│   ├── utils/                           # 基础设施
+│   │   ├── config.py                    # Pydantic Settings 读取 .env
+│   │   ├── database.py                  # SQLite 异步引擎 + 会话工厂
+│   │   ├── exceptions.py               # 全局异常类
+│   │   ├── llm.py                       # DeepSeek AsyncOpenAI 封装
+│   │   └── context_manager.py          # Token 预算 + 滑动窗口 + 语义压缩
+│   │
+│   ├── models/                          # SQLAlchemy ORM（5 张表）
+│   │   ├── __init__.py                  # 聚合导出 Base + 5 个模型
+│   │   ├── base.py                      # declarative_base
+│   │   ├── user.py                      # User ─ id/username/password_hash/salt/role
+│   │   ├── message.py                   # Message ─ 对话消息
+│   │   ├── plan.py                      # Plan ─ 旅行计划
+│   │   ├── document.py                 # Document ─ 上传文档元数据
+│   │   └── conversation.py             # Conversation ─ 对话会话
+│   │
+│   ├── crud/                            # 数据访问层
+│   │   ├── base.py                      # 泛型 CRUD 基类
+│   │   ├── user.py                      # User 增删改查
+│   │   ├── message.py                   # Message 增删改查
+│   │   ├── plan.py                      # Plan 增删改查
+│   │   ├── document.py                 # Document 增删改查
+│   │   └── conversation.py             # Conversation 增删改查
+│   │
+│   ├── schemas/                         # Pydantic 请求/响应模型
+│   │   ├── auth.py                      # 注册/登录/Token
+│   │   ├── chat.py                      # 对话/历史
+│   │   ├── knowledge.py                # 知识库检索
+│   │   └── admin.py                     # 管理接口
+│   │
+│   ├── auth/                            # 认证鉴权
+│   │   ├── security.py                  # SHA-256 加盐 + JWT 签发验证
+│   │   └── dependencies.py             # get_current_user / require_admin
+│   │
+│   ├── routers/                         # FastAPI 路由
+│   │   ├── router.py                    # APIRouter 聚合
+│   │   ├── auth_router.py              # POST /register /login + GET /me
+│   │   ├── chat_router.py              # POST /chat（SSE） + GET /history
+│   │   ├── admin_router.py             # 用户管理 + POST /upload（文档入库）
+│   │   └── knowledge_router.py         # GET /search-knowledge（RAG 调试）
+│   │
+│   ├── agents/                          # Agent 核心
+│   │   ├── state.py                     # AgentState TypedDict
+│   │   ├── supervisor.py               # LangGraph Plan-and-Execute 主图
+│   │   ├── skills/                      # 各 Worker 的角色说明书（Markdown）
+│   │   │   ├── planner.md              # Planner 计划拆解规范
+│   │   │   ├── flight.md               # 航班 Worker
+│   │   │   ├── hotel.md                # 酒店 Worker
+│   │   │   ├── attraction.md           # 景点 Worker
+│   │   │   ├── itinerary.md            # 日程 Worker
+│   │   │   └── budget.md               # 预算 Worker
+│   │   ├── workers/                     # Worker 实现
+│   │   │   ├── base.py                  # Worker 基类（RSKILL.md + ReAct 循环）
+│   │   │   ├── flight_worker.py        # 航班 Worker
+│   │   │   ├── hotel_worker.py         # 酒店 Worker
+│   │   │   ├── attraction_worker.py    # 景点 Worker
+│   │   │   ├── itinerary_worker.py     # 日程 Worker
+│   │   │   └── budget_worker.py        # 预算 Worker
+│   │   └── workflow/                    # 确定性规则层
+│   │       └── guard.py                 # 输入安全校验（正则，零 Token）
+│   │
+│   ├── mcp/                             # MCP 协议层
+│   │   ├── client.py                    # MCP Client ─ Agent 调工具入口
+│   │   ├── registry.py                 # 工具注册表（启动时加载）
+│   │   └── servers/
+│   │       ├── flight_server.py        # 航班 MCP Server（模拟数据）
+│   │       └── weather_server.py       # 天气 MCP Server（模拟数据）
+│   │
+│   └── rag/                             # RAG 知识检索管道
+│       ├── mineru_parser.py            # PDF/Word → Markdown
+│       ├── chunker.py                  # Markdown → 语义分块（512/128）
+│       ├── embeddings.py              # BGE-M3 向量化
+│       ├── bm25.py                     # BM25 关键词检索
+│       ├── retriever.py               # 混合检索 + CrossEncoder 精排 → Top5
+│       └── vector_store.py            # ChromaDB CRUD
+│
+├── uploads/                             # 管理员上传文件落盘
+│   └── .gitkeep
+│
+└── tests/                               # DeepEval 测试
+    ├── conftest.py                      # Fixtures
+    ├── test_supervisor.py             # Supervisor 测试 ×3
+    ├── test_flight_worker.py          # 航班 Worker 测试 ×3
+    ├── test_hotel_worker.py           # 酒店 Worker 测试 ×3
+    ├── test_attraction_worker.py      # 景点 Worker 测试 ×3
+    ├── test_itinerary_worker.py       # 日程 Worker 测试 ×3
+    └── test_budget_worker.py          # 预算 Worker 测试 ×3
+```## 🧪 技术栈
 
 | 分类 | 技术 |
 |:--|:--|
