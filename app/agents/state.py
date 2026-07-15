@@ -10,5 +10,3 @@ class AgentState(TypedDict):
     final_answer: str               # 汇总后的最终回复
     guard_blocked: bool             # 安全门卫是否拦截
     guard_reason: str               # 拦截原因
-    need_clarify: bool              # Clarifier：是否需要追问用户
-    clarify_question: str           # Clarifier：追问的问题

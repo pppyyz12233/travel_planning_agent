@@ -41,8 +41,8 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_db), user=Depend
         "final_answer": "",
         "guard_blocked": False,
         "guard_reason": "",
-        "need_clarify": False,
-        "clarify_question": "",
+        
+        
     }
 
     result = await build_graph().ainvoke(state)
