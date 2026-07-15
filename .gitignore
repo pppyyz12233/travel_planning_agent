@@ -1,33 +1,29 @@
-﻿# 环境变量
+# 环境变量
 .env
 
 # Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-dist/
-build/
 
 # 数据库
 *.db
 *.sqlite3
 
-# ChromaDB 持久化
-chroma_data/
-
-# 上传文件
-uploads/*
-!uploads/.gitkeep
-
 # IDE
 .idea/
 .vscode/
 *.swp
-*.swo
 
 # 虚拟环境
 venv/
 .venv/
+
+# Claude
+.claude/
+
+# Reasonix
+.reasonix/
 
 # 系统
 .DS_Store

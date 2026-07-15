@@ -1,4 +1,4 @@
-﻿"""对话消息表"""
+"""对话消息表"""
 
 import datetime
 
@@ -12,7 +12,6 @@ class Message(Base):
     __tablename__ = "message"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("user.id"), nullable=False, index=True)
     conversation_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("conversation.id"), nullable=False, index=True
     )

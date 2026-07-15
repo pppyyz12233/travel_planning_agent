@@ -1,4 +1,4 @@
-﻿"""管理接口 Schema"""
+"""管理接口 Schema"""
 
 from pydantic import BaseModel
 

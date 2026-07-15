@@ -1,4 +1,4 @@
-﻿"""旅行计划表（Plan-and-Execute 模式产物）"""
+"""旅行计划表（Plan-and-Execute 模式产物）"""
 
 import datetime
 

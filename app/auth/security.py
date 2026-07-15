@@ -1,4 +1,3 @@
-﻿"""SHA-256 加盐哈希 + JWT 签发/验证"""
 
 import hashlib
 import secrets
@@ -9,21 +8,23 @@ import jwt
 from app.utils.config import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_HOURS
 
 
-def hash_password(password: str) -> "tuple[str, str]":
-    """返回 (hash_hex, salt_hex)"""
+def hash_password(password: str) -> str:
+    """返回 salt$hash 格式"""
     salt = secrets.token_hex(16)
-    salted = salt + password
-    hash_hex = hashlib.sha256(salted.encode()).hexdigest()
-    return hash_hex, salt
+    hashed = hashlib.sha256((password + salt).encode()).hexdigest()
+    return f"{salt}${hashed}"
 
 
-def verify_password(password: str, salt: str, hash_value: str) -> bool:
+def verify_password(plain: str, hashed: str) -> bool:
     """验证密码"""
-    return hashlib.sha256((salt + password).encode()).hexdigest() == hash_value
+    parts = hashed.split("$")
+    if len(parts) != 2:
+        return False
+    salt, stored = parts
+    return hashlib.sha256((plain + salt).encode()).hexdigest() == stored
 
 
 def create_token(user_id: int, role: str) -> str:
-    """签发 JWT"""
     payload = {
         "sub": str(user_id),
         "role": role,
@@ -34,5 +35,4 @@ def create_token(user_id: int, role: str) -> str:
 
 
 def decode_token(token: str) -> dict:
-    """验证并解码 JWT，无效则抛出异常"""
     return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])

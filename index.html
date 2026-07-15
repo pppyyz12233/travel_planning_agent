@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>旅行规划师</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="static/leaflet.css">
+<script src="static/leaflet.js"></script>
+<script src="static/marked.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif;background:#f1f5f9;color:#1e293b;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#cbd5e1}
+input,button{font-family:inherit}
+.fld{border:2px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;width:100%;outline:none;background:#fff;transition:.2s}
+.fld:focus{border-color:#2563eb}
+.btn{background:#2563eb;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer}
+.btn:hover{background:#1d4ed8}
+.btn:disabled{opacity:.4}
+.msg-u{background:#2563eb;color:#fff;border-radius:16px 16px 4px 16px}
+.msg-a{background:#fff;border:1px solid #e2e8f0;border-radius:16px 16px 16px 4px}
+.dot{width:7px;height:7px;border-radius:50%}
+.dot-w{background:#cbd5e1}
+.dot-a{background:#2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.15);animation:pulse 1.5s infinite}
+.dot-d{background:#22c55e}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(37,99,235,.15)}50%{box-shadow:0 0 0 8px rgba(37,99,235,.05)}}
+.modal-overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3)}
+.md h2{font-size:1.1em;font-weight:700;color:#2563eb;margin:.5em 0 .2em}
+.md table{width:100%;border-collapse:collapse;margin:.3em 0;font-size:.88em}
+.md th{background:#f1f5f9;font-weight:600;text-align:left;padding:5px 8px;border:1px solid #e2e8f0}
+.md td{padding:5px 8px;border:1px solid #e2e8f0}
+</style>
+</head>
+<body style="display:flex;height:100vh">
+
+<div style="width:260px;background:#fff;border-right:1px solid #e2e8f0;overflow-y:auto;display:flex;flex-direction:column;flex-shrink:0">
+  <div style="padding:12px 16px;border-bottom:1px solid #e2e8f0;font-weight:700;font-size:14px">旅行规划师</div>
+  <div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
+    <div><div style="font-size:10px;color:#94a3b8;margin-bottom:2px">目的地</div><input id="dest" class="fld" placeholder="东京" value="东京"></div>
+    <div><div style="font-size:10px;color:#94a3b8;margin-bottom:2px">出发地</div><input id="from" class="fld" placeholder="上海" value="上海"></div>
+    <div><div style="font-size:10px;color:#94a3b8;margin-bottom:2px">日期</div><input id="startDate" class="fld" type="date" value="2026-08-01"></div>
+    <div style="display:flex;gap:6px">
+      <div style="flex:1"><div style="font-size:10px;color:#94a3b8;margin-bottom:2px">天数</div><input id="days" class="fld" type="number" value="5" style="text-align:center"></div>
+      <div style="flex:1"><div style="font-size:10px;color:#94a3b8;margin-bottom:2px">人数</div><input id="ppl" class="fld" type="number" value="2" style="text-align:center"></div>
+      <div style="flex:1"><div style="font-size:10px;color:#94a3b8;margin-bottom:2px">预算</div><input id="budget" class="fld" type="number" value="8000" style="text-align:center"></div>
+    </div>
+    <button id="goBtn" class="btn" onclick="doGo()" style="width:100%;padding:12px">开始规划</button>
+    <div id="progBox" style="display:none"><div style="font-size:10px;color:#94a3b8;margin-bottom:4px">进度</div><div id="progList"></div></div>
+  </div>
+  <div style="margin-top:auto;padding:8px 16px;border-top:1px solid #e2e8f0;font-size:12px">
+    <div id="loginBtn" onclick="showLogin()" style="color:#2563eb;cursor:pointer">登入账号</div>
+    <div id="userBox" style="display:none;align-items:center;gap:4px"><span id="uAv" style="width:20px;height:20px;border-radius:50%;background:#2563eb;color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700"></span><span id="uNm" style="font-size:12px"></span><span onclick="logout()" style="color:#94a3b8;cursor:pointer;margin-left:auto;font-size:10px">退出</span></div>
+  </div>
+</div>
+
+<div style="flex:1;display:flex;flex-direction:column;background:#f8fafc;min-width:0">
+  <div id="chatBox" style="flex:1;overflow-y:auto;padding:12px 20px;display:flex;flex-direction:column;gap:8px">
+    <div id="welcome" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#94a3b8">
+      <div style="font-size:40px;margin-bottom:8px">🗺</div>
+      <div style="font-size:16px;font-weight:700;color:#475569">想去哪里？</div>
+      <div style="font-size:12px;margin-top:4px">左边填好信息，或直接下方输入</div>
+    </div>
+  </div>
+  <div style="padding:10px 16px;border-top:1px solid #e2e8f0;background:#fff;display:flex;gap:8px">
+    <input id="chatInput" class="fld" placeholder="描述旅行计划..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()" class="btn">发送</button>
+  </div>
+</div>
+
+<div id="rightPanel" style="width:420px;border-left:1px solid #e2e8f0;background:#fff;display:flex;flex-direction:column;flex-shrink:0">
+  <div id="dayBar" style="display:none;padding:6px 12px;border-bottom:1px solid #e2e8f0;gap:6px;overflow-x:auto"></div>
+  <div style="flex:1;position:relative"><div id="mapDiv" style="position:absolute;inset:0;background:#e2e8f0"></div><div id="mapLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.6);z-index:5;font-size:12px;color:#94a3b8">加载地图中...</div></div>
+</div>
+
+<div id="loginModal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeLogin()">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:360px" onclick="event.stopPropagation()">
+    <div style="font-size:16px;font-weight:700;margin-bottom:12px" id="loginTitle">登入账号</div>
+    <div style="display:flex;background:#f1f5f9;border-radius:8px;padding:2px;margin-bottom:12px">
+      <button id="tabE" onclick="swT('email')" style="flex:1;padding:6px;font-size:12px;border-radius:6px;background:#fff;border:none;cursor:pointer;font-weight:500">邮箱</button>
+      <button id="tabP" onclick="swT('phone')" style="flex:1;padding:6px;font-size:12px;border-radius:6px;background:transparent;border:none;cursor:pointer;color:#64748b;font-weight:500">手机</button>
+    </div>
+    <form onsubmit="doLogin(event)" style="display:flex;flex-direction:column;gap:8px">
+      <div id="ef"><input id="lem" class="fld" placeholder="邮箱地址"></div>
+      <div id="pf" style="display:none"><input id="lph" class="fld" placeholder="手机号"></div>
+      <input id="lnm" class="fld" placeholder="用户名（注册时填写）">
+      <input id="lpw" type="password" class="fld" placeholder="密码">
+      <button type="submit" class="btn" style="width:100%">登入</button>
+    </form>
+    <div onclick="tgL()" id="tgLbl" style="text-align:center;margin-top:8px;font-size:11px;color:#64748b;cursor:pointer">没有账号？去注册</div>
+  </div>
+</div>
+
+<div id="routeLegend" style="display:none;position:absolute;bottom:10px;left:10px;z-index:10;background:#fff;border-radius:8px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.1);font-size:11px">
+  <div><span style="display:inline-block;width:20px;height:3px;background:#2563eb;vertical-align:middle;margin-right:4px"></span> 景点路线</div>
+  <div><span style="display:inline-block;width:20px;height:3px;background:#22c55e;vertical-align:middle;margin-right:4px;border-top:2px dashed #22c55e"></span> 步行</div>
+  <div><span style="display:inline-block;width:20px;height:3px;background:#f59e0b;vertical-align:middle;margin-right:4px;border-top:2px dotted #f59e0b"></span> 驾车/地铁</div>
+</div>
+
+<script>
+var A="http://localhost:8000/api",tk=localStorage.getItem("t"),cid=null,isReg=false,lt="email";
+var map=null,dayRoutes={},curDay=null;
+
+// ===== COORDINATES =====
+var SPOTS={
+"新宿":[35.69,139.70],"涩谷":[35.66,139.70],"浅草寺":[35.714,139.797],"浅草":[35.714,139.797],"银座":[35.672,139.767],"秋叶原":[35.702,139.774],"原宿":[35.670,139.702],"表参道":[35.665,139.712],"六本木":[35.660,139.729],"台场":[35.629,139.775],"池袋":[35.730,139.711],"惠比寿":[35.647,139.710],"代官山":[35.648,139.703],"自由之丘":[35.607,139.668],"吉祥寺":[35.703,139.580],"下北泽":[35.662,139.667],"筑地":[35.665,139.771],"月岛":[35.665,139.783],"人形町":[35.686,139.782],"神乐坂":[35.703,139.737],"高圆寺":[35.705,139.650],"中野":[35.707,139.666],"赤坂":[35.673,139.736],"丸之内":[35.682,139.764],"有乐町":[35.675,139.763],"日比谷":[35.674,139.759],"麻布":[35.658,139.738],"青山":[35.668,139.713],"目黑":[35.634,139.698],"品川":[35.630,139.730],"大久保":[35.702,139.697],"天空树":[35.710,139.813],"晴空塔":[35.710,139.813],"明治神宫":[35.676,139.699],"皇居":[35.685,139.753],"东京塔":[35.659,139.745],"上野公园":[35.714,139.773],"歌舞伎町":[35.694,139.703],"筑地市场":[35.665,139.771],"涩谷十字路口":[35.659,139.701],"忠犬八公像":[35.659,139.701],"东京巨蛋":[35.705,139.752],"新宿御苑":[35.685,139.710],"代代木公园":[35.672,139.698],"成田机场":[35.765,140.386],"羽田机场":[35.549,139.780],"大阪":[34.694,135.502],"京都":[35.012,135.768],"奈良":[34.685,135.833],
+"外滩":[31.240,121.490],"东方明珠":[31.240,121.500],"豫园":[31.227,121.493],"南京路":[31.236,121.475],"陆家嘴":[31.236,121.502],"上海迪士尼":[31.144,121.657],"静安寺":[31.224,121.448],"新天地":[31.220,121.474],"田子坊":[31.210,121.469],"人民广场":[31.232,121.475],"浦东":[31.239,121.540],"虹桥":[31.197,121.399],
+"故宫":[39.918,116.397],"天安门":[39.909,116.397],"颐和园":[39.992,116.275],"天坛":[39.882,116.413],"长城":[40.432,116.570],"鸟巢":[39.993,116.388],"南锣鼓巷":[39.938,116.403],"王府井":[39.914,116.417],"三里屯":[39.933,116.455],"798":[39.984,116.495],
+"埃菲尔铁塔":[48.858,2.294],"卢浮宫":[48.861,2.336],"凯旋门":[48.874,2.295],"巴黎圣母院":[48.853,2.350],"蒙马特":[48.887,2.342],"香榭丽舍":[48.870,2.308],
+"大皇宫":[13.750,100.492],"暹罗广场":[13.746,100.534],
+"鱼尾狮":[1.287,103.854],"滨海湾":[1.282,103.858],
+"悉尼歌剧院":[-33.857,151.215],"大本钟":[51.501,-0.125],"时代广场":[40.758,-73.986],"中央公园":[40.782,-73.966]
+};
+
+var CITY={"东京":[35.682,139.760],"上海":[31.230,121.474],"北京":[39.905,116.397],"巴黎":[48.857,2.352],"曼谷":[13.756,100.502],"新加坡":[1.352,103.820],"伦敦":[51.507,-0.128],"纽约":[40.713,-74.006],"悉尼":[-33.869,151.209],"首尔":[37.567,126.978],"迪拜":[25.204,55.271]};
+
+// ===== MAP INIT =====
+setTimeout(function(){
+  try{
+    map=L.map("mapDiv",{zoomControl:false,attributionControl:false}).setView([35.68,139.76],5);
+    L.tileLayer("https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",{maxZoom:18}).addTo(map);
+    L.control.zoom({position:"bottomright"}).addTo(map);
+    var ml=document.getElementById("mapLoading");if(ml)ml.style.display="none";
+  }catch(e){console.log(e)}
+},300);
+
+// ===== ROUTE DRAWING =====
+function drawRoutes(text){
+  if(!map){setTimeout(function(){drawRoutes(text)},600);return}
+  document.getElementById("mapLoading").style.display="none";
+
+  // Clear old
+  map.eachLayer(function(l){if(l instanceof L.Marker||l instanceof L.Polyline||l instanceof L.Polygon){map.removeLayer(l)}});
+
+  var found=[],seen={};
+  // Step 1: Find all matching SPOTS in the text
+  for(var k in SPOTS){if(text.indexOf(k)!==-1&&!seen[k]){seen[k]=true;found.push(k)}}
+  console.log("Found places:",found);
+
+  if(found.length===0){
+    var city=document.getElementById("dest").value||"东京";
+    if(CITY[city]){map.setView(CITY[city],12);L.marker(CITY[city]).addTo(map).bindPopup(city).openPopup()}
+    return;
+  }
+
+  // Step 2: Try to group by day
+  var days={},cur=null,lines=text.split(/\n/);
+  for(var i=0;i<lines.length;i++){
+    var m=lines[i].match(/(?:Day|第)\s*(\d+)/i);
+    if(m){cur=parseInt(m[1]);if(!days[cur])days[cur]=[];continue}
+    if(cur!==null){for(var j=0;j<found.length;j++){if(lines[i].indexOf(found[j])!==-1&&days[cur].indexOf(found[j])===-1)days[cur].push(found[j])}}
+  }
+
+  // If day grouping worked, use it. Otherwise just show all found places
+  var hasDays=false;
+  for(var d in days){if(days[d].length>1)hasDays=true}
+  
+  if(hasDays){
+    dayRoutes={};
+    for(var d in days){dayRoutes[d]=[];for(var j=0;j<days[d].length;j++){var nm=days[d][j];dayRoutes[d].push({name:nm,lat:SPOTS[nm][0],lng:SPOTS[nm][1]})};if(dayRoutes[d].length<2)delete dayRoutes[d]}
+    
+    var keys=Object.keys(dayRoutes).map(Number).sort(function(a,b){return a-b});
+    var bar=document.getElementById("dayBar");bar.innerHTML="";bar.style.display=keys.length?"flex":"none";
+    for(var ki=0;ki<keys.length;ki++){(function(d){
+      var b=document.createElement("button");b.style.cssText="padding:3px 10px;font-size:11px;border-radius:5px;border:1px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;margin:0 2px";
+      b.textContent="Day "+d;
+      b.onclick=function(){
+        var bs=bar.querySelectorAll("button");for(var bi=0;bi<bs.length;bi++)bs[bi].style.cssText="padding:3px 10px;font-size:11px;border-radius:5px;border:1px solid #e2e8f0;background:#fff;color:#64748b;cursor:pointer;margin:0 2px";
+        b.style.background="#2563eb";b.style.color="#fff";b.style.borderColor="#2563eb";
+        curDay=d;drawDay(d);
+      };
+      bar.appendChild(b);
+    })(keys[ki])}
+    if(keys.length>0){bar.children[0].click();curDay=keys[0];drawDay(keys[0])}
+  } else {
+    // Just show all found places on one route
+    document.getElementById("dayBar").style.display="none";
+    var lls=[];
+    for(var i=0;i<found.length;i++){
+      var s=SPOTS[found[i]];
+      L.marker([s[0],s[1]],{icon:L.divIcon({html:'<div style="background:#2563eb;color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">'+(i+1)+'</div>',iconSize:[20,20],iconAnchor:[10,10]})}).addTo(map).bindPopup(found[i]);
+      lls.push([s[0],s[1]]);
+    }
+    if(lls.length>1){L.polyline(lls,{color:"#2563eb",weight:3,opacity:.7}).addTo(map)}
+    if(lls.length)map.fitBounds(lls,{padding:[40,40]});
+  }
+}
+
+function drawDay(d){
+  if(!map||!dayRoutes[d])return;
+  map.eachLayer(function(l){if(l instanceof L.Marker||l instanceof L.Polyline)map.removeLayer(l)});
+  var pts=dayRoutes[d],lls=[];
+  for(var i=0;i<pts.length;i++){
+    var s=pts[i];
+    L.marker([s.lat,s.lng],{icon:L.divIcon({html:'<div style="background:#2563eb;color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700">'+(i+1)+'</div>',iconSize:[20,20],iconAnchor:[10,10]})}).addTo(map).bindPopup(s.name);
+    lls.push([s.lat,s.lng]);
+  }
+  if(lls.length>1)L.polyline(lls,{color:"#2563eb",weight:3,opacity:.7}).addTo(map);
+  if(lls.length)map.fitBounds(lls,{padding:[40,40]});
+}
+
+// ===== AUTH =====
+if(tk)loadU();
+function loadU(){fetch(A+"/auth/me",{headers:{Authorization:"Bearer "+tk}}).then(function(r){return r.json()}).then(function(d){if(d.code===200){document.getElementById("loginBtn").style.display="none";document.getElementById("userBox").style.display="flex";document.getElementById("uNm").textContent=d.data.username;document.getElementById("uAv").textContent=d.data.username[0].toUpperCase()}}).catch(function(){tk=null;localStorage.removeItem("t")})}
+function showLogin(){document.getElementById("loginModal").style.display="flex"}
+function closeLogin(){document.getElementById("loginModal").style.display="none"}
+function swT(t){lt=t;document.getElementById("ef").style.display=t==="email"?"block":"none";document.getElementById("pf").style.display=t==="phone"?"block":"none";var te=document.getElementById("tabE"),tp=document.getElementById("tabP");te.style.cssText=t==="email"?"flex:1;padding:6px;font-size:12px;border-radius:6px;background:#fff;border:none;cursor:pointer;font-weight:500":"flex:1;padding:6px;font-size:12px;border-radius:6px;background:transparent;border:none;cursor:pointer;color:#64748b;font-weight:500";tp.style.cssText=t==="phone"?"flex:1;padding:6px;font-size:12px;border-radius:6px;background:#fff;border:none;cursor:pointer;font-weight:500":"flex:1;padding:6px;font-size:12px;border-radius:6px;background:transparent;border:none;cursor:pointer;color:#64748b;font-weight:500"}
+function tgL(){isReg=!isReg;document.getElementById("loginTitle").textContent=isReg?"创建账号":"登入账号";document.getElementById("tgLbl").textContent=isReg?"已有账号？去登入":"没有账号？去注册";document.getElementById("lnm").parentElement.style.display=isReg?"block":"none"}
+function doLogin(e){e.preventDefault();var em=document.getElementById("lem").value,ph=document.getElementById("lph").value,nm=document.getElementById("lnm").value,pw=document.getElementById("lpw").value;if(isReg){fetch(A+"/auth/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:em||null,phone:ph||null,username:nm,password:pw})}).then(function(r){return r.json()}).then(function(d){if(d.code===200){tk=d.data.access_token;localStorage.setItem("t",tk);closeLogin();loadU()}else alert(d.message)})}else{var ep=lt==="email"?"/auth/login/email":"/auth/login/phone";var body=lt==="email"?{email:em,password:pw}:{phone:ph,password:pw};fetch(A+ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.json()}).then(function(d){if(d.code===200){tk=d.data.access_token;localStorage.setItem("t",tk);closeLogin();loadU()}else alert(d.message)})}}
+function logout(){tk=null;localStorage.removeItem("t");location.reload()}
+
+// ===== CHAT =====
+function addBubble(role,text){
+  var el=document.getElementById("chatBox"),w=document.getElementById("welcome");if(w)w.style.display="none";
+  var d=document.createElement("div");d.style.cssText="display:flex;"+(role==="user"?"justify-content:flex-end":"justify-content:flex-start");
+  d.innerHTML='<div style="max-width:85%;padding:10px 16px;font-size:14px;line-height:1.6;word-wrap:break-word;'+(role==="user"?"background:#2563eb;color:#fff;border-radius:16px 16px 4px 16px":"background:#fff;border:1px solid #e2e8f0;border-radius:16px 16px 16px 4px")+'"><div class="md">'+(role==="assistant"?marked.parse(text):text.replace(/\n/g,"<br>"))+'</div></div>';
+  el.appendChild(d);el.scrollTop=el.scrollHeight;
+}
+
+function doGo(){
+  var f=document.getElementById("from").value||"上海",t=document.getElementById("dest").value||"东京",dt=document.getElementById("startDate").value||"";
+  document.getElementById("chatInput").value="从"+f+"去"+t+(dt?"，"+dt+"出发":"")+"，"+document.getElementById("days").value+"天，"+document.getElementById("ppl").value+"人，人均"+document.getElementById("budget").value+"元";
+  send();
+}
+
+async function send(){
+  var msg=document.getElementById("chatInput").value.trim();if(!msg)return;if(!tk){showLogin();return}
+  document.getElementById("chatInput").value="";addBubble("user",msg);
+  var btn=document.getElementById("goBtn");btn.disabled=true;btn.textContent="规划中...";
+  document.getElementById("progBox").style.display="block";
+  var st=["安全检查","信息确认","拆任务","查航班","找酒店","荐景点","排日程","算预算","汇总"];
+  document.getElementById("progList").innerHTML=st.map(function(s,i){return'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="dot dot-w" id="sd'+i+'"></div><span style="font-size:10px;color:#94a3b8" id="sl'+i+'">'+s+'</span></div>'}).join("");
+  for(var i=0;i<st.length;i++){await new Promise(function(r){setTimeout(r,80+i*40)});document.getElementById("sd"+i).className="dot dot-a";document.getElementById("sl"+i).style.cssText="color:#1e293b;font-weight:500"}
+  try{
+    var r=await fetch(A+"/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tk},body:JSON.stringify({message:msg,conversation_id:cid})});var d=await r.json();
+    if(d.code===200){cid=d.data.conversation_id;for(var i=0;i<st.length;i++){document.getElementById("sd"+i).className="dot dot-d";document.getElementById("sl"+i).style.color="#94a3b8"}addBubble("assistant",d.data.reply);if(map){map.eachLayer(function(l){if(l instanceof L.Marker||l instanceof L.Polyline)map.removeLayer(l)})};setTimeout(function(){try{drawRoutes(d.data.reply)}catch(e){console.log(e)};var c=document.getElementById('dest').value||'东京';if(CITY[c]){map.setView(CITY[c],12);L.marker(CITY[c]).addTo(map).bindPopup(c)}},300)}
+    else addBubble("assistant","失败: "+d.message)
+  }catch(e){addBubble("assistant","无法连接服务器")}
+  btn.disabled=false;btn.textContent="开始规划";
+}
+</script>
+</body>
+</html>

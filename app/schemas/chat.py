@@ -1,4 +1,4 @@
-﻿"""对话相关 Pydantic Schema"""
+"""对话相关 Pydantic Schema"""
 
 from pydantic import BaseModel, Field
 

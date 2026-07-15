@@ -1,4 +1,4 @@
-﻿"""全局异常定义"""
+"""全局异常定义"""
 
 
 class NotFoundError(Exception):

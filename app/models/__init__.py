@@ -1,4 +1,4 @@
-﻿# 聚合所有 ORM 模型，统一对外导出
+# 聚合所有 ORM 模型，统一对外导出
 from app.models.base import Base
 from app.models.user import User
 from app.models.message import Message
